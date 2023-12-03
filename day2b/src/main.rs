@@ -3,7 +3,7 @@ use core::cmp::max;
 fn main() {
     let sum: u32 = include_str!("input.txt")
         .lines()
-        .map(
+        .map(|line| {
             line.split_once(':')
                 .unwrap()
                 .1
@@ -20,8 +20,8 @@ fn main() {
                     acc
                 })
                 .iter()
-                .product(),
-        )
+                .product::<u32>()
+        })
         .sum();
     println!("{sum}");
 }

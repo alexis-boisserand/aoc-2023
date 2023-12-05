@@ -5,14 +5,6 @@ fn to_numbers(s: &str) -> impl Iterator<Item = u32> + '_ {
         .filter_map(|s| s.parse::<u32>().ok())
 }
 
-fn count_copies(index: usize, matches: &[u32], instances: &mut [u32]) {
-    instances[index] += 1;
-    if matches[index] > 0 {
-        (index + 1..=index + matches[index] as usize)
-            .for_each(|i| count_copies(i, matches, instances));
-    }
-}
-
 fn main() {
     let matches: Vec<_> = include_str!("input.txt")
         .lines()
@@ -25,9 +17,13 @@ fn main() {
         })
         .collect();
 
-    let mut instances = vec![0u32; matches.len()];
-    for index in 0..instances.len() {
-        count_copies(index, &matches, &mut instances)
+    let mut instances = vec![1u32; matches.len()];
+    for i in 0..instances.len() {
+        if matches[i] > 0 {
+            for j in i + 1..=i + matches[i] as usize {
+                instances[j] += instances[i];
+            }
+        }
     }
 
     let sum = instances.iter().sum::<u32>();

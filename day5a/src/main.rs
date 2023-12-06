@@ -1,13 +1,5 @@
 fn main() {
     let lines: Vec<_> = include_str!("input.txt").lines().collect();
-    let mut seeds: Vec<_> = lines[0]
-        .split_once(':')
-        .unwrap()
-        .1
-        .split_whitespace()
-        .map(|s| s.parse::<u64>().unwrap())
-        .collect();
-
     let maps: Vec<_> = lines[2..]
         .split(|line| line.is_empty())
         .map(|lines| {
@@ -26,16 +18,25 @@ fn main() {
         })
         .collect();
 
-    for seed in &mut seeds {
-        for map in &maps {
-            for (source, destination) in map {
-                if source.contains(&seed){
-                    *seed = destination.start + (*seed - source.start);
-                    break;
-                }
-            }
-        }
-    }
+    let min = lines[0]
+        .split_once(':')
+        .unwrap()
+        .1
+        .split_whitespace()
+        .map(|s| s.parse::<u64>().unwrap())
+        .into_iter()
+        .map(|seed| {
+            maps.iter().fold(seed, |value, map| {
+                map.iter()
+                    .find_map(|(src, dst)| {
+                        src.contains(&value)
+                            .then(|| dst.start + value - src.start)
+                    })
+                    .unwrap_or(value)
+            })
+        })
+        .min()
+        .unwrap();
 
-    println!("{}", seeds.iter().min().unwrap());
+    println!("{min}");
 }

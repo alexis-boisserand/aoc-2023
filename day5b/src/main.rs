@@ -9,31 +9,28 @@ fn map_range(range: Range<i64>, map: &[(Range<i64>, Range<i64>)]) -> Vec<Range<i
             continue;
         }
 
-        if src.start <= range.start && src.end >= range.end {
-            let dist = dst.start - src.start;
-            ranges.push(range.start + dist..range.end + dist);
-            return ranges;
-        }
+        let dist = dst.start - src.start;
 
-        if src.start <= range.start && src.end < range.end {
-            let dist = dst.start - src.start;
-            ranges.push(range.start + dist..src.end + dist);
-            ranges.extend(map_range(src.end..range.end, &map[i + 1..]));
-            return ranges;
-        }
+        let newrange_start;
+        let newrange_end;
 
-        if src.start > range.start && src.end >= range.end {
-            ranges.push(dst.start..dst.start + range.end - src.start);
+        if src.start <= range.start {
+            newrange_start = range.start + dist;
+        } else {
+            newrange_start = dst.start;
             ranges.extend(map_range(range.start..src.start, &map[i + 1..]));
-            return ranges;
         }
 
-        if src.start > range.start && src.end < range.end {
-            ranges.push(dst.start..dst.end);
-            ranges.extend(map_range(range.start..src.start, &map[i + 1..]));
+        if src.end >= range.end {
+            newrange_end = range.end + dist;
+        } else {
+            newrange_end = dst.end;
             ranges.extend(map_range(src.end..range.end, &map[i + 1..]));
-            return ranges;
         }
+
+        ranges.push(newrange_start..newrange_end);
+
+        return ranges;
     }
     ranges.push(range);
     ranges
@@ -58,7 +55,6 @@ fn main() {
                 .collect::<Vec<_>>()
         })
         .collect();
-
 
     let mut ranges: Vec<_> = lines[0]
         .split_once(':')

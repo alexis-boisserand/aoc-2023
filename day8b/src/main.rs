@@ -2,6 +2,7 @@ use itertools::{
     FoldWhile::{Continue, Done},
     Itertools,
 };
+use num::integer::lcm;
 use std::collections::HashMap;
 
 fn main() {
@@ -19,7 +20,9 @@ fn main() {
         })
         .collect();
 
-    let counts: Vec<_> = network.keys().filter(|node| node.ends_with('A'))
+    let counts: Vec<_> = network
+        .keys()
+        .filter(|node| node.ends_with('A'))
         .into_iter()
         .map(|node| {
             let (_, count) = format
@@ -43,6 +46,6 @@ fn main() {
         })
         .collect();
 
-    let count = counts.iter().fold(1u64, |a, b| num::integer::lcm(a, *b));
+    let count = counts.into_iter().fold(1u64, |a, b| lcm(a, b));
     println!("{count}");
 }

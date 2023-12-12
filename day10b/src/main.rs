@@ -61,7 +61,7 @@ impl Direction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Tile {
     Ground,
     Start,
@@ -133,68 +133,67 @@ fn next(x: usize, y: usize, direction: Direction, map: &[Vec<Tile>]) -> Option<(
 fn escape(
     x: usize,
     y: usize,
-    directions: &[Direction],
+    source_direction: Option<Direction>,
     map: &[Vec<Tile>],
     pipes: &HashSet<(usize, usize)>,
     visited: &mut HashSet<(usize, usize)>,
     depth: usize,
 ) -> bool {
-    let space = str::repeat(" ", depth);
-    println!("{space}visiting {x} {y}");
     visited.insert((x, y));
 
     let mut success = false;
 
-    for direction in directions {
-        match next(x, y, *direction, map) {
-            None => {
-                return true;
-            }
-            Some((x, y)) => {
-                if !visited.contains(&(x, y)) {
-                    let mut next_directions: Vec<Direction> = Vec::new();
-                    if !pipes.contains(&(x, y)) {
-                        next_directions.extend(ALL_DIRECTIONS);
-                    } else {
-                        match (direction, &map[y][x]) {
-                            (Horizontal(_), HorizontalPipe) => {
-                                next_directions.extend(ALL_HORIZONTAL_DIRECTIONS);
-                            }
-                            (Vertical(_), VerticalPipe) => {
-                                next_directions.extend(ALL_VERTICAL_DIRECTIONS);
-                            }
-                            (Vertical(_) | Horizontal(_), BentPipe(_, _)) => {
-                                next_directions.push(*direction);
-                            }
-                            _ => {}
-                        }
-                    }
-
-                    let next_directions: Vec<_> = next_directions
-                        .into_iter()
-                        .filter(|d| *d != direction.opposite())
-                        .collect();
-                    if !next_directions.is_empty() {
-                        success |= escape(x, y, &next_directions, map, pipes, visited, depth + 1);
+    for direction in ALL_DIRECTIONS {
+        if source_direction.map_or(true, |source| direction != source.opposite()) {
+            match next(x, y, direction, map) {
+                None => {
+                    return true;
+                }
+                Some((x, y)) => {
+                    if !visited.contains(&(x, y)) && !pipes.contains(&(x, y)) {
+                        success |= escape(x, y, Some(direction), map, pipes, visited, depth + 1);
                     }
                 }
-                //    if !pipes.contains(&(x, y))
-                //        || match (direction, &map[y][x]) {
-                //            (Horizontal(_), HorizontalPipe) | (Vertical(_), VerticalPipe) => {
-                //                true
-                //            }
-                //            (Vertical(_) | Horizontal(_), BentPipe(_, _)) => true,
-                //            _ => false,
-                //        }
-                //    {
-                //        success |=
-                //            escape(x, y, Some(direction), map, pipes, visited, depth + 1);
-                //    }
-                //}
             }
         }
     }
     success
+}
+
+fn expand_map(
+    map: &[Vec<Tile>],
+    pipes: &HashSet<(usize, usize)>,
+) -> (Vec<Vec<Tile>>, HashSet<(usize, usize)>) {
+    let height = map.len();
+    let width = map[0].len();
+
+    let mut expanded_pipes = HashSet::new();
+    let mut expanded_map = vec![vec![Ground; width * 2]; height * 2];
+    for y in 0..map.len() {
+        for x in 0..map[y].len() {
+            expanded_map[y * 2][x * 2] = map[y][x].clone();
+            if pipes.contains(&(x, y)) {
+                expanded_pipes.insert((x * 2, y * 2));
+                match map[y][x] {
+                    HorizontalPipe | BentPipe(_, East) => {
+                        expanded_map[y * 2][x * 2 + 1] = HorizontalPipe;
+                        expanded_pipes.insert((x * 2 + 1, y * 2));
+                    }
+                    _ => {}
+                }
+
+                match map[y][x] {
+                    VerticalPipe | BentPipe(South, _) => {
+                        expanded_map[y * 2 + 1][x * 2] = VerticalPipe;
+                        expanded_pipes.insert((x * 2, y * 2 + 1));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    (expanded_map, expanded_pipes)
 }
 
 fn main() {
@@ -265,21 +264,36 @@ fn main() {
 
     let pipes: HashSet<(usize, usize)> = pipes.into_iter().collect();
 
+    let (expanded_map, expanded_pipes) = expand_map(&map, &pipes);
     let mut count = 0;
+
+    for y in 0..expanded_map.len() {
+        for x in 0..expanded_map[y].len() {
+            print!("{}", expanded_map[y][x]);
+        }
+        println!();
+    }
 
     for y in 0..map.len() {
         for x in 0..map[y].len() {
             if !pipes.contains(&(x, y)) {
-                let mut visited: HashSet<(usize, usize)> = HashSet::new();
-                if escape(x, y, &ALL_DIRECTIONS, &map, &pipes, &mut visited, 0) {
-                    println!("{x} {y} escaped!");
-                } else {
+                let mut visited = HashSet::new();
+                if !escape(
+                    x * 2,
+                    y * 2,
+                    None,
+                    &expanded_map,
+                    &expanded_pipes,
+                    &mut visited,
+                    0,
+                ) {
+                    println!("{x} {y} didn't escape");
                     count += 1;
-                    println!("{x} {y} didn't escape :(");
                 }
             }
         }
     }
+
     println!("{count}");
 
     //let mut visited: HashSet<(usize, usize)> = HashSet::new();

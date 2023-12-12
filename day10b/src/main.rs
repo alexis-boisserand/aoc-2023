@@ -5,7 +5,7 @@ use HorizontalDirection::*;
 use Tile::*;
 use VerticalDirection::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum VerticalDirection {
     South,
     North,
@@ -20,7 +20,7 @@ impl VerticalDirection {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum HorizontalDirection {
     East,
     West,
@@ -35,7 +35,7 @@ impl HorizontalDirection {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Direction {
     Vertical(VerticalDirection),
     Horizontal(HorizontalDirection),
@@ -131,32 +131,65 @@ fn next(x: usize, y: usize, direction: Direction, map: &[Vec<Tile>]) -> Option<(
 }
 
 fn escape(
-    x: usize,
-    y: usize,
-    source_direction: Option<Direction>,
+    start_x: usize,
+    start_y: usize,
+    mut direction: Direction,
     map: &[Vec<Tile>],
     pipes: &HashSet<(usize, usize)>,
-    visited: &mut HashSet<(usize, usize)>,
-    depth: usize,
+    free_tiles: &mut HashSet<(usize, usize)>,
 ) -> bool {
-    visited.insert((x, y));
-
     let mut success = false;
 
-    for direction in ALL_DIRECTIONS {
-        if source_direction.map_or(true, |source| direction != source.opposite()) {
-            match next(x, y, direction, map) {
-                None => {
-                    return true;
+    let mut visited = HashSet::new();
+
+    let (mut x, mut y) = (start_x, start_y);
+
+    'main: loop {
+        visited.insert((x, y, direction));
+        println!("{x} {y} {direction:?}");
+        match next(x, y, direction, map) {
+            None => {
+                success = true;
+                break 'main;
+            }
+            Some((xx, yy)) => {
+                if free_tiles.contains(&(xx, yy)) {
+                    success = true;
+                    break 'main;
                 }
-                Some((x, y)) => {
-                    if !visited.contains(&(x, y)) && !pipes.contains(&(x, y)) {
-                        success |= escape(x, y, Some(direction), map, pipes, visited, depth + 1);
+
+                if visited.contains(&(xx, yy, direction)) {
+                    break 'main;
+                }
+
+                if pipes.contains(&(xx, yy)) {
+                    match (direction, &map[yy][xx]) {
+                        (Horizontal(_), VerticalPipe) => {
+                            direction = Vertical(South);
+                        }
+                        (Vertical(_), HorizontalPipe) => {
+                            direction = Horizontal(East);
+                        }
+                        (Horizontal(_), BentPipe(v, _)) => {
+                            direction = Vertical(*v);
+                        }
+                        (Vertical(_), BentPipe(_, h)) => {
+                            direction = Horizontal(*h);
+                        }
+                        _ => unreachable!(),
                     }
+                    continue;
                 }
+
+                (x, y) = (xx, yy);
             }
         }
     }
+
+    if success {
+        free_tiles.insert((start_x, start_y));
+    }
+
     success
 }
 
@@ -274,18 +307,18 @@ fn main() {
         println!();
     }
 
+    let mut free_tiles: HashSet<(usize, usize)> = HashSet::new();
     for y in 0..map.len() {
         for x in 0..map[y].len() {
-            if !pipes.contains(&(x, y)) {
-                let mut visited = HashSet::new();
+            if !pipes.contains(&(x, y)) && !free_tiles.contains(&(x, y)) {
+                println!("escaping {x} {y}");
                 if !escape(
                     x * 2,
                     y * 2,
-                    None,
+                    Horizontal(East),
                     &expanded_map,
                     &expanded_pipes,
-                    &mut visited,
-                    0,
+                    &mut free_tiles,
                 ) {
                     println!("{x} {y} didn't escape");
                     count += 1;
@@ -295,8 +328,4 @@ fn main() {
     }
 
     println!("{count}");
-
-    //let mut visited: HashSet<(usize, usize)> = HashSet::new();
-    //let depth = 0;
-    //escape(2, 6, &ALL_DIRECTIONS, &map, &pipes, &mut visited, depth);
 }
